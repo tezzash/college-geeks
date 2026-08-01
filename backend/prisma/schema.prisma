@@ -1,0 +1,53 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Player {
+  id               String            @id @default(cuid())
+  username         String            @unique
+  email            String            @unique
+  passwordHash     String            @map("password_hash")
+  cash             Int               @default(0)
+  energy           Int               @default(100)
+  lastEnergyUpdate DateTime          @default(now()) @map("last_energy_update")
+  createdAt        DateTime          @default(now()) @map("created_at")
+  updatedAt        DateTime          @updatedAt @map("updated_at")
+  attacks          Battle[]          @relation("BattleAttacker")
+  defenses         Battle[]          @relation("BattleDefender")
+  transactions     CashTransaction[]
+
+  @@map("players")
+}
+
+model Battle {
+  id          String   @id @default(cuid())
+  attackerId  String   @map("attacker_id")
+  defenderId  String   @map("defender_id")
+  action      String
+  success     Boolean
+  cashStolen  Int      @default(0) @map("cash_stolen")
+  probability Float
+  metadata    Json?
+  createdAt   DateTime @default(now()) @map("created_at")
+  attacker    Player   @relation("BattleAttacker", fields: [attackerId], references: [id])
+  defender    Player   @relation("BattleDefender", fields: [defenderId], references: [id])
+
+  @@map("battles")
+}
+
+model CashTransaction {
+  id        String   @id @default(cuid())
+  playerId  String   @map("player_id")
+  type      String
+  amount    Int
+  reference String?
+  createdAt DateTime @default(now()) @map("created_at")
+  player    Player   @relation(fields: [playerId], references: [id])
+
+  @@map("cash_transactions")
+}

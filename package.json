@@ -1,0 +1,34 @@
+{
+  "name": "college-geeks",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "test": "jest --coverage",
+    "test:unit": "jest",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@nestjs/common": "^10.4.20",
+    "@nestjs/event-emitter": "^3.0.1",
+    "@nestjs/testing": "^10.4.20",
+    "@prisma/client": "^6.13.0",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.2"
+  },
+  "devDependencies": {
+    "@types/jest": "^30.0.0",
+    "jest": "^30.0.5",
+    "prisma": "^6.13.0",
+    "ts-jest": "^29.4.0",
+    "typescript": "^5.8.3"
+  },
+  "jest": {
+    "moduleFileExtensions": ["js", "json", "ts"],
+    "rootDir": ".",
+    "testRegex": ".*\\.spec\\.ts$",
+    "transform": {"^.+\\.(t|j)s$": "ts-jest"},
+    "collectCoverageFrom": ["backend/src/**/*.ts", "!backend/src/**/*.spec.ts", "!backend/src/**/index.ts"],
+    "coverageDirectory": "coverage",
+    "testEnvironment": "node"
+  }
+}
