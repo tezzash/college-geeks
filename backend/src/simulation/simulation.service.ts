@@ -180,11 +180,11 @@ export class SimulationService {
   }
 
   private validatePositiveInteger(value: number, name: string): void {
-    if (!Number.isInteger(value) || value <= 0) throw new Error(`${name} must be a positive integer.`);
+    if (!Number.isInteger(value) || value <= 0 || value > 1_000_000) throw new Error(`${name} must be a positive integer not exceeding 1,000,000.`);
   }
 
   private validateNonNegativeInteger(value: number, name: string): void {
-    if (!Number.isInteger(value) || value < 0) throw new Error(`${name} must be a non-negative integer.`);
+    if (!Number.isInteger(value) || value < 0 || value > 1_000_000) throw new Error(`${name} must be a non-negative integer not exceeding 1,000,000.`);
   }
 
   private calculateWinProbability(attacker: BattleStats, defender: BattleStats): number {
