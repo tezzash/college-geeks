@@ -38,6 +38,7 @@ describe('SimulationService', () => {
   it('rejects invalid battle inputs', () => {
     assert.throws(() => service.simulateBattle({ power: -1, smartness: 0 }, defender, 1), /attackerStats/);
     assert.throws(() => service.simulateBattle(attacker, defender, 0), /iterations/);
+    assert.throws(() => service.simulateBattle(attacker, defender, 1_000_001), /iterations/);
   });
 
   it('simulates economy without mutating caller data', () => {
@@ -54,6 +55,7 @@ describe('SimulationService', () => {
     assert.throws(() => service.simulateEconomy([], 1, 1, 1), /players/);
     assert.throws(() => service.simulateEconomy(players(), -1, 1, 1), /jobsPerDay/);
     assert.throws(() => service.simulateEconomy(players(), 1, 1, 0), /days/);
+    assert.throws(() => service.simulateEconomy(players(), 1_000_001, 1, 1), /jobsPerDay/);
   });
 
   it('creates configurable job income without PvP transfers', () => {
@@ -77,6 +79,10 @@ describe('SimulationService', () => {
   it('requires two players when attacks are requested', () => {
     assert.throws(() => service.simulatePvpEconomy([players()[0]], 1), /At least two players/);
     assert.equal(service.simulatePvpEconomy([players()[0]], 0).totalMoneyTransferred, 0);
+  });
+
+  it('rejects excessive attacks to prevent unbounded loops', () => {
+    assert.throws(() => service.simulatePvpEconomy(players(), 1_000_001), /attacks/);
   });
 
   it('returns a balance report for each built-in ally', () => {
