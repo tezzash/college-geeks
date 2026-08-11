@@ -1,5 +1,3 @@
-import assert from 'node:assert/strict';
-import { describe, it } from 'node:test';
 import { SimulationService } from './simulation.service';
 
 describe('SimulationService benchmark', () => {
@@ -12,7 +10,7 @@ describe('SimulationService benchmark', () => {
       { seed: 20260801 },
     );
 
-    assert.equal(result.battles, 100_000);
-    assert.ok(result.averageDurationMs < 0.05, `averageDurationMs was ${result.averageDurationMs}`);
+    expect(result.battles).toEqual(100_000);
+    expect(result.averageDurationMs).toBeLessThan(0.05);
   });
 });

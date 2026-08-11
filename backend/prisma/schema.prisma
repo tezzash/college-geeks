@@ -1,0 +1,112 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Player {
+  id               String            @id @default(uuid())
+  username         String            @unique
+  email            String            @unique
+  passwordHash     String            @map("password_hash")
+  cash             Int               @default(1000)
+  energy           Int               @default(10)
+  lastEnergyUpdate DateTime          @default(now()) @map("last_energy_update")
+  createdAt        DateTime          @default(now()) @map("created_at")
+  updatedAt        DateTime          @updatedAt @map("updated_at")
+  transactions     CashTransaction[]
+  towerRooms       TowerRoom[]
+  attacks          Battle[]          @relation("BattleAttacker")
+  defenses         Battle[]          @relation("BattleDefender")
+
+  @@map("players")
+}
+
+model Battle {
+  id          String   @id @default(cuid())
+  attackerId  String   @map("attacker_id")
+  defenderId  String   @map("defender_id")
+  action      String
+  success     Boolean
+  cashStolen  Int      @default(0) @map("cash_stolen")
+  probability Float
+  metadata    Json?
+  createdAt   DateTime @default(now()) @map("created_at")
+  attacker    Player   @relation("BattleAttacker", fields: [attackerId], references: [id])
+  defender    Player   @relation("BattleDefender", fields: [defenderId], references: [id])
+
+  @@map("battles")
+}
+
+model TowerRoom {
+  id          String   @id @default(uuid())
+  playerId    String   @map("player_id")
+  roomNumber  Int      @map("room_number")
+  unlocked    Boolean  @default(false)
+  unlockCost  Int?     @map("unlock_cost")
+  roomOccupants RoomOccupant[]
+  player      Player   @relation(fields: [playerId], references: [id])
+
+  @@map("tower_rooms")
+}
+
+model RoomOccupant {
+  id          String    @id @default(uuid())
+  roomId      String    @map("room_id")
+  allyId      String?   @map("ally_id")
+  ally        Ally?     @relation(fields: [allyId], references: [id])
+  towerRoom   TowerRoom @relation(fields: [roomId], references: [id])
+
+  @@map("room_occupants")
+}
+
+model Ally {
+  id             String  @id @default(uuid())
+  name           String
+  basePower      Int?    @map("base_power")
+  power          Int?
+  baseSmartness  Int?    @map("base_smartness")
+  smartness      Int?
+  hireCost       Int?    @map("hire_cost")
+  roomOccupants  RoomOccupant[]
+
+  @@map("allies")
+}
+
+model Job {
+  id               String       @id @default(uuid())
+  name             String
+  energyCost       Int          @map("energy_cost")
+  cashReward       Int          @map("cash_reward")
+  durationSeconds  Int          @map("duration_seconds")
+  activeJobs       ActiveJob[]
+
+  @@map("jobs")
+}
+
+model ActiveJob {
+  id          String   @id @default(uuid())
+  playerId    String   @map("player_id")
+  jobId       String   @map("job_id")
+  collected   Boolean  @default(false)
+  finishesAt  DateTime @map("finishes_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+  job         Job      @relation(fields: [jobId], references: [id])
+
+  @@map("active_jobs")
+}
+
+model CashTransaction {
+  id        String   @id @default(cuid())
+  playerId  String   @map("player_id")
+  type      String
+  amount    Int
+  reference String?
+  createdAt DateTime @default(now()) @map("created_at")
+  player    Player   @relation(fields: [playerId], references: [id])
+
+  @@map("cash_transactions")
+}
