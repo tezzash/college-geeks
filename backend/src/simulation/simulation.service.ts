@@ -132,9 +132,11 @@ export class SimulationService {
       for (let j = i + 1; j < DEFAULT_ALLIES.length; j += 1) {
         const probability = this.calculateWinProbability(DEFAULT_ALLIES[i], DEFAULT_ALLIES[j]);
         const firstWins = random() < probability;
-        records[firstWins ? i : j].wins += 1;
-        records[firstWins ? j : i].losses += 1;
-        records[firstWins ? i : j].cash += this.calculateCashTransfer(DEFAULT_ALLIES[firstWins ? j : i]);
+        const winnerIndex = firstWins ? i : j;
+        const loserIndex = firstWins ? j : i;
+        records[winnerIndex].wins += 1;
+        records[loserIndex].losses += 1;
+        records[winnerIndex].cash += this.calculateCashTransfer(DEFAULT_ALLIES[loserIndex]);
       }
     }
 
