@@ -9,6 +9,7 @@
     "simulate:example": "tsc -p tsconfig.json && node dist/scripts/run-simulation.js"
   },
   "devDependencies": {
+    "@types/node": "^26.2.0",
     "typescript": "^6.0.3"
   }
 }
