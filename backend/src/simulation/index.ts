@@ -1,2 +1,2 @@
-export * from './simulation.service';
-export * from './simulation.types';
+export * from "./simulation.service";
+export * from "./simulation.types";
