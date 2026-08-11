@@ -35,6 +35,18 @@ describe('SimulationService', () => {
     assert.equal(result.averageProbability, 50);
   });
 
+  it('calculates cash transfer using unprotectedCash if available', () => {
+    const customAttacker = { power: 30, smartness: 20, cash: 1_000, unprotectedCash: 0 };
+    const customDefender = { power: 20, smartness: 10, cash: 2_000, unprotectedCash: 500 };
+    const result = service.simulateBattle(customAttacker, customDefender, 10_000, { seed: 12345 });
+
+    // DEFAULT_STEAL_RATE (0.05) * DEFAULT_BATTLE_RATING (0.5) = 0.025
+    // Defender loss transfer = 500 * 0.025 = 12.5
+    // Attacker loss transfer = 0 * 0.025 = 0
+    assert.equal(result.averageCashWon, (result.attackerWins * 12.5) / 10_000);
+    assert.equal(result.averageCashLost, 0);
+  });
+
   it('rejects invalid battle inputs', () => {
     assert.throws(() => service.simulateBattle({ power: -1, smartness: 0 }, defender, 1), /attackerStats/);
     assert.throws(() => service.simulateBattle(attacker, defender, 0), /iterations/);
