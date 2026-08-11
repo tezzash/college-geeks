@@ -67,6 +67,16 @@ describe('SimulationService', () => {
     assert.equal(service.simulateJobIncome(players(), 2, { jobsPerDay: 0 }).totalMoneyCreated, 0);
   });
 
+  it('uses default job reward when jobRewardCash is missing', () => {
+    const input: EconomyPlayer[] = [
+      { id: 'no-reward-set', power: 10, smartness: 10, cash: 1_000 },
+    ];
+    // Default job reward is 100, 3 days, 2 jobs per day = 100 * 3 * 2 = 600
+    const result = service.simulateJobIncome(input, 3, { jobsPerDay: 2 });
+    assert.equal(result.totalMoneyCreated, 600);
+    assert.equal(result.players[0].cash, 1_600);
+  });
+
   it('transfers existing money without creating cash', () => {
     const result = service.simulatePvpEconomy(players(), 100, { seed: 99 });
     assert.equal(result.totalMoneyCreated, 0);
