@@ -37,6 +37,10 @@ describe('SimulationService', () => {
 
   it('rejects invalid battle inputs', () => {
     assert.throws(() => service.simulateBattle({ power: -1, smartness: 0 }, defender, 1), /attackerStats/);
+    assert.throws(() => service.simulateBattle({ power: NaN, smartness: 0 }, defender, 1), /attackerStats/);
+    assert.throws(() => service.simulateBattle({ power: Infinity, smartness: 0 }, defender, 1), /attackerStats/);
+    assert.throws(() => service.simulateBattle({ power: 0, smartness: NaN }, defender, 1), /attackerStats/);
+    assert.throws(() => service.simulateBattle({ power: 0, smartness: Infinity }, defender, 1), /attackerStats/);
     assert.throws(() => service.simulateBattle(attacker, defender, 0), /iterations/);
   });
 
