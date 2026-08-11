@@ -37,12 +37,15 @@ export class SimulationService {
     let cashWon = 0;
     let cashLost = 0;
 
+    const attackerCashTransfer = this.calculateCashTransfer(attackerStats);
+    const defenderCashTransfer = this.calculateCashTransfer(defenderStats);
+
     for (let index = 0; index < iterations; index += 1) {
       if (random() < probability) {
         attackerWins += 1;
-        cashWon += this.calculateCashTransfer(defenderStats);
+        cashWon += defenderCashTransfer;
       } else {
-        cashLost += this.calculateCashTransfer(attackerStats);
+        cashLost += attackerCashTransfer;
       }
     }
 
