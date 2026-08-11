@@ -1,0 +1,1 @@
+export const STAT_MODIFIER_SOURCES = Symbol('STAT_MODIFIER_SOURCES');
