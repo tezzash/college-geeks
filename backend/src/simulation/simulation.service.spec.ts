@@ -35,9 +35,28 @@ describe('SimulationService', () => {
     assert.equal(result.averageProbability, 50);
   });
 
+  it('supports action-specific combat probabilities', () => {
+    const powerSpecialist = { power: 90, smartness: 10 };
+    const smartnessSpecialist = { power: 10, smartness: 90 };
+
+    assert.equal(service.simulateBattle(powerSpecialist, smartnessSpecialist, 10, { action: 'punch' }).averageProbability, 90);
+    assert.equal(service.simulateBattle(powerSpecialist, smartnessSpecialist, 10, { action: 'face-off' }).averageProbability, 10);
+    assert.equal(service.simulateBattle(powerSpecialist, smartnessSpecialist, 10).averageProbability, 50);
+  });
+
+  it('uses caller-provided balance values instead of fixed production assumptions', () => {
+    const result = service.simulateBattle(attacker, defender, 1, {
+      balance: { battleRating: 1, stealRate: 0.1, minimumWinProbability: 0, maximumWinProbability: 1 },
+      seed: 1,
+    });
+
+    assert.equal(result.averageCashWon, 200);
+  });
+
   it('rejects invalid battle inputs', () => {
     assert.throws(() => service.simulateBattle({ power: -1, smartness: 0 }, defender, 1), /attackerStats/);
     assert.throws(() => service.simulateBattle(attacker, defender, 0), /iterations/);
+    assert.throws(() => service.simulateBattle(attacker, defender, 1, { balance: { stealRate: -1 } }), /Balance/);
   });
 
   it('simulates economy without mutating caller data', () => {
@@ -65,6 +84,15 @@ describe('SimulationService', () => {
 
   it('allows zero jobs per day', () => {
     assert.equal(service.simulateJobIncome(players(), 2, { jobsPerDay: 0 }).totalMoneyCreated, 0);
+  });
+
+  it('uses configurable default job rewards when players omit their own reward', () => {
+    const result = service.simulateJobIncome([{ id: 'a', power: 1, smartness: 1, cash: 0 }], 2, {
+      jobsPerDay: 3,
+      balance: { defaultJobRewardCash: 25 },
+    });
+
+    assert.equal(result.totalMoneyCreated, 150);
   });
 
   it('transfers existing money without creating cash', () => {

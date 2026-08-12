@@ -4,14 +4,19 @@ import {
   BattleStats,
   EconomyPlayer,
   EconomySimulationResult,
+  SimulationBalanceConfig,
   SimulationOptions,
 } from './simulation.types';
 
 type RandomSource = () => number;
 
-const DEFAULT_BATTLE_RATING = 0.5;
-const DEFAULT_STEAL_RATE = 0.05;
-const DEFAULT_JOB_REWARD = 100;
+const DEFAULT_BALANCE_CONFIG: Required<SimulationBalanceConfig> = {
+  battleRating: 0.5,
+  stealRate: 0.05,
+  defaultJobRewardCash: 100,
+  minimumWinProbability: 0.05,
+  maximumWinProbability: 0.95,
+};
 const DEFAULT_ALLIES: BattleStats[] = [
   { id: 'alex', name: 'Alex', power: 24, smartness: 16, cash: 1_000 },
   { id: 'miranda', name: 'Miranda', power: 14, smartness: 28, cash: 1_000 },
@@ -31,8 +36,9 @@ export class SimulationService {
     this.validatePositiveInteger(iterations, 'iterations');
 
     const random = this.createRandom(options.seed);
+    const balance = this.createBalanceConfig(options.balance);
     const started = performance.now();
-    const probability = this.calculateWinProbability(attackerStats, defenderStats);
+    const probability = this.calculateWinProbability(attackerStats, defenderStats, options, balance);
     let attackerWins = 0;
     let cashWon = 0;
     let cashLost = 0;
@@ -40,9 +46,9 @@ export class SimulationService {
     for (let index = 0; index < iterations; index += 1) {
       if (random() < probability) {
         attackerWins += 1;
-        cashWon += this.calculateCashTransfer(defenderStats);
+        cashWon += this.calculateCashTransfer(defenderStats, balance);
       } else {
-        cashLost += this.calculateCashTransfer(attackerStats);
+        cashLost += this.calculateCashTransfer(attackerStats, balance);
       }
     }
 
@@ -72,7 +78,8 @@ export class SimulationService {
     this.validatePositiveInteger(days, 'days');
 
     const workingPlayers = this.clonePlayers(players);
-    const totalMoneyCreated = this.applyJobIncome(workingPlayers, days, jobsPerDay);
+    const balance = this.createBalanceConfig(options.balance);
+    const totalMoneyCreated = this.applyJobIncome(workingPlayers, days, jobsPerDay, balance);
     const pvp = this.simulatePvpEconomy(workingPlayers, attacksPerDay * days, options);
     return this.createEconomyReport(pvp.players, totalMoneyCreated, pvp.totalMoneyTransferred);
   }
@@ -80,7 +87,7 @@ export class SimulationService {
   simulateJobIncome(
     players: EconomyPlayer[],
     days: number,
-    options: { jobsPerDay?: number } = {},
+    options: { jobsPerDay?: number; balance?: SimulationBalanceConfig } = {},
   ): EconomySimulationResult {
     this.validatePlayers(players);
     this.validatePositiveInteger(days, 'days');
@@ -88,7 +95,8 @@ export class SimulationService {
     this.validateNonNegativeInteger(jobsPerDay, 'jobsPerDay');
 
     const workingPlayers = this.clonePlayers(players);
-    const totalMoneyCreated = this.applyJobIncome(workingPlayers, days, jobsPerDay);
+    const balance = this.createBalanceConfig(options.balance);
+    const totalMoneyCreated = this.applyJobIncome(workingPlayers, days, jobsPerDay, balance);
 
     return this.createEconomyReport(workingPlayers, totalMoneyCreated, 0);
   }
@@ -106,6 +114,7 @@ export class SimulationService {
 
     const workingPlayers = this.clonePlayers(players);
     const random = this.createRandom(options.seed);
+    const balance = this.createBalanceConfig(options.balance);
     let totalMoneyTransferred = 0;
     for (let attack = 0; attack < attacks; attack += 1) {
       const attackerIndex = Math.floor(random() * workingPlayers.length);
@@ -113,8 +122,8 @@ export class SimulationService {
       if (defenderIndex >= attackerIndex) defenderIndex += 1;
       const attacker = workingPlayers[attackerIndex];
       const defender = workingPlayers[defenderIndex];
-      if (random() < this.calculateWinProbability(attacker, defender)) {
-        const transfer = Math.min(defender.cash, this.calculateCashTransfer(defender));
+      if (random() < this.calculateWinProbability(attacker, defender, options, balance)) {
+        const transfer = Math.min(defender.cash, this.calculateCashTransfer(defender, balance));
         defender.cash -= transfer;
         attacker.cash += transfer;
         totalMoneyTransferred += transfer;
@@ -126,15 +135,16 @@ export class SimulationService {
 
   simulateAllyBalance(options: SimulationOptions = {}): AllyBalanceResult[] {
     const random = this.createRandom(options.seed);
+    const balance = this.createBalanceConfig(options.balance);
     const records = DEFAULT_ALLIES.map((ally) => ({ ally, wins: 0, losses: 0, cash: 0 }));
 
     for (let i = 0; i < DEFAULT_ALLIES.length; i += 1) {
       for (let j = i + 1; j < DEFAULT_ALLIES.length; j += 1) {
-        const probability = this.calculateWinProbability(DEFAULT_ALLIES[i], DEFAULT_ALLIES[j]);
+        const probability = this.calculateWinProbability(DEFAULT_ALLIES[i], DEFAULT_ALLIES[j], options, balance);
         const firstWins = random() < probability;
         records[firstWins ? i : j].wins += 1;
         records[firstWins ? j : i].losses += 1;
-        records[firstWins ? i : j].cash += this.calculateCashTransfer(DEFAULT_ALLIES[firstWins ? j : i]);
+        records[firstWins ? i : j].cash += this.calculateCashTransfer(DEFAULT_ALLIES[firstWins ? j : i], balance);
       }
     }
 
@@ -153,10 +163,15 @@ export class SimulationService {
     });
   }
 
-  private applyJobIncome(players: EconomyPlayer[], days: number, jobsPerDay: number): number {
+  private applyJobIncome(
+    players: EconomyPlayer[],
+    days: number,
+    jobsPerDay: number,
+    balance: Required<SimulationBalanceConfig>,
+  ): number {
     let totalMoneyCreated = 0;
     for (const player of players) {
-      const created = (player.jobRewardCash ?? DEFAULT_JOB_REWARD) * jobsPerDay * days;
+      const created = (player.jobRewardCash ?? balance.defaultJobRewardCash) * jobsPerDay * days;
       player.cash += created;
       totalMoneyCreated += created;
     }
@@ -187,16 +202,45 @@ export class SimulationService {
     if (!Number.isInteger(value) || value < 0) throw new Error(`${name} must be a non-negative integer.`);
   }
 
-  private calculateWinProbability(attacker: BattleStats, defender: BattleStats): number {
-    const attackerScore = attacker.power + attacker.smartness;
-    const defenderScore = defender.power + defender.smartness;
+  private calculateWinProbability(
+    attacker: BattleStats,
+    defender: BattleStats,
+    options: SimulationOptions,
+    balance: Required<SimulationBalanceConfig>,
+  ): number {
+    const action = options.action ?? 'balanced';
+    const attackerScore = this.calculateActionScore(attacker, action);
+    const defenderScore = this.calculateActionScore(defender, action);
     if (attackerScore + defenderScore === 0) return 0.5;
-    return Math.min(0.95, Math.max(0.05, attackerScore / (attackerScore + defenderScore)));
+    return Math.min(
+      balance.maximumWinProbability,
+      Math.max(balance.minimumWinProbability, attackerScore / (attackerScore + defenderScore)),
+    );
   }
 
-  private calculateCashTransfer(loser: BattleStats): number {
+  private calculateActionScore(stats: BattleStats, action: SimulationOptions['action']): number {
+    if (action === 'punch') return stats.power;
+    if (action === 'face-off') return stats.smartness;
+    return stats.power + stats.smartness;
+  }
+
+  private calculateCashTransfer(loser: BattleStats, balance: Required<SimulationBalanceConfig>): number {
     const cash = loser.unprotectedCash ?? loser.cash ?? 0;
-    return Math.max(0, cash * DEFAULT_STEAL_RATE * DEFAULT_BATTLE_RATING);
+    return Math.max(0, cash * balance.stealRate * balance.battleRating);
+  }
+
+  private createBalanceConfig(config: SimulationBalanceConfig = {}): Required<SimulationBalanceConfig> {
+    const balance = { ...DEFAULT_BALANCE_CONFIG, ...config };
+    if (balance.minimumWinProbability < 0 || balance.maximumWinProbability > 1) {
+      throw new Error('Win probability bounds must be between 0 and 1.');
+    }
+    if (balance.minimumWinProbability > balance.maximumWinProbability) {
+      throw new Error('minimumWinProbability must be less than or equal to maximumWinProbability.');
+    }
+    if (balance.battleRating < 0 || balance.stealRate < 0 || balance.defaultJobRewardCash < 0) {
+      throw new Error('Balance cash values must be non-negative.');
+    }
+    return balance;
   }
 
   private createRandom(seed?: number): RandomSource {

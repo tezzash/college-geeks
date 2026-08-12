@@ -14,6 +14,20 @@ The Simulation Engine is an internal-only developer and administrator tool for b
 
 `options.seed` enables deterministic mode. Running a simulation with the same inputs and seed produces the same win/loss and economy outcomes, except for measured timing fields.
 
+`options.action` can be set to:
+
+- `balanced` (default): compare `power + smartness`.
+- `punch`: compare `power` only.
+- `face-off`: compare `smartness` only.
+
+`options.balance` allows callers to override alpha balance values for simulation runs without editing business logic:
+
+- `battleRating`
+- `stealRate`
+- `defaultJobRewardCash`
+- `minimumWinProbability`
+- `maximumWinProbability`
+
 ## Example
 
 ```ts
