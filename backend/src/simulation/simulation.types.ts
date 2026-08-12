@@ -1,5 +1,17 @@
+export type BattleAction = 'balanced' | 'punch' | 'face-off';
+
+export interface SimulationBalanceConfig {
+  battleRating?: number;
+  stealRate?: number;
+  defaultJobRewardCash?: number;
+  minimumWinProbability?: number;
+  maximumWinProbability?: number;
+}
+
 export interface SimulationOptions {
   seed?: number;
+  action?: BattleAction;
+  balance?: SimulationBalanceConfig;
 }
 
 export interface BattleStats {
