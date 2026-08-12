@@ -4,9 +4,10 @@
   "private": true,
   "scripts": {
     "lint": "tsc --noEmit -p tsconfig.json",
-    "test": "tsc -p tsconfig.json && node --test dist/src/simulation/*.spec.js",
+    "test": "tsc -p tsconfig.json && node --test dist/src/**/*.spec.js",
     "test:benchmark": "tsc -p tsconfig.json && node --test dist/src/simulation/simulation.benchmark.spec.js",
-    "simulate:example": "tsc -p tsconfig.json && node dist/scripts/run-simulation.js"
+    "simulate:example": "tsc -p tsconfig.json && node dist/scripts/run-simulation.js",
+    "start": "tsc -p tsconfig.json && node dist/src/main.js"
   },
   "devDependencies": {
     "typescript": "^6.0.3"
