@@ -15,4 +15,5 @@ declare module 'node:test' {
 
 declare const console: { log(message?: unknown, ...optionalParams: unknown[]): void };
 declare const performance: { now(): number };
+declare const process: { env: Record<string, string | undefined> };
 declare function structuredClone<T>(value: T): T;

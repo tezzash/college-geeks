@@ -1,0 +1,139 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum BattleAction {
+  PUNCH
+  FACE_OFF
+}
+
+enum CashTransactionType {
+  STARTING_CASH
+  JOB_REWARD
+  TOWER_ROOM_UNLOCK
+  ALLY_HIRE
+  PVP_STEAL_CREDIT
+  PVP_STEAL_DEBIT
+  ADMIN_ADJUSTMENT
+}
+
+model Player {
+  id               String            @id @default(uuid())
+  username         String            @unique
+  email            String            @unique
+  passwordHash     String            @map("password_hash")
+  cash             Decimal           @default(1000) @db.Decimal(18, 2)
+  energy           Int               @default(10)
+  lastEnergyUpdate DateTime          @default(now()) @map("last_energy_update")
+  createdAt        DateTime          @default(now()) @map("created_at")
+  updatedAt        DateTime          @updatedAt @map("updated_at")
+  towerRooms       TowerRoom[]
+  activeJobs       ActiveJob[]
+  attacks          Battle[]          @relation("BattleAttacker")
+  defenses         Battle[]          @relation("BattleDefender")
+  cashTransactions CashTransaction[]
+
+  @@map("players")
+}
+
+model TowerRoom {
+  id          String         @id @default(uuid())
+  playerId    String         @map("player_id")
+  roomNumber  Int            @map("room_number")
+  unlockCost  Decimal        @map("unlock_cost") @db.Decimal(18, 2)
+  unlocked    Boolean        @default(false)
+  player      Player         @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  occupants   RoomOccupant[]
+
+  @@unique([playerId, roomNumber])
+  @@index([playerId])
+  @@map("tower_rooms")
+}
+
+model Ally {
+  id          String         @id @default(uuid())
+  name        String
+  tier        String
+  power       Int
+  smartness   Int
+  hireCost    Decimal        @map("hire_cost") @db.Decimal(18, 2)
+  occupants   RoomOccupant[]
+
+  @@index([tier])
+  @@map("allies")
+}
+
+model RoomOccupant {
+  id          String    @id @default(uuid())
+  towerRoomId String    @map("tower_room_id")
+  allyId      String    @map("ally_id")
+  hiredAt     DateTime  @default(now()) @map("hired_at")
+  towerRoom   TowerRoom @relation(fields: [towerRoomId], references: [id], onDelete: Cascade)
+  ally        Ally      @relation(fields: [allyId], references: [id])
+
+  @@unique([towerRoomId])
+  @@index([allyId])
+  @@map("room_occupants")
+}
+
+model Job {
+  id              String      @id @default(uuid())
+  name            String
+  durationSeconds Int         @map("duration_seconds")
+  rewardCash      Decimal     @map("reward_cash") @db.Decimal(18, 2)
+  activeJobs      ActiveJob[]
+
+  @@map("jobs")
+}
+
+model ActiveJob {
+  id         String   @id @default(uuid())
+  playerId   String   @map("player_id")
+  jobId      String   @map("job_id")
+  startedAt  DateTime @default(now()) @map("started_at")
+  finishesAt DateTime @map("finishes_at")
+  collected  Boolean  @default(false)
+  player     Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  job        Job      @relation(fields: [jobId], references: [id])
+
+  @@index([playerId, collected])
+  @@index([finishesAt])
+  @@map("active_jobs")
+}
+
+model Battle {
+  id          String       @id @default(uuid())
+  attackerId  String       @map("attacker_id")
+  defenderId  String       @map("defender_id")
+  action      BattleAction
+  success     Boolean
+  cashStolen  Decimal      @default(0) @map("cash_stolen") @db.Decimal(18, 2)
+  createdAt   DateTime     @default(now()) @map("created_at")
+  attacker    Player       @relation("BattleAttacker", fields: [attackerId], references: [id], onDelete: Cascade)
+  defender    Player       @relation("BattleDefender", fields: [defenderId], references: [id], onDelete: Cascade)
+
+  @@index([attackerId, createdAt])
+  @@index([defenderId, createdAt])
+  @@map("battles")
+}
+
+model CashTransaction {
+  id             String              @id @default(uuid())
+  playerId       String              @map("player_id")
+  type           CashTransactionType
+  amount         Decimal             @db.Decimal(18, 2)
+  balanceAfter   Decimal             @map("balance_after") @db.Decimal(18, 2)
+  reference      String?
+  idempotencyKey String?             @unique @map("idempotency_key")
+  createdAt      DateTime            @default(now()) @map("created_at")
+  player         Player              @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@index([playerId, createdAt])
+  @@index([type])
+  @@map("cash_transactions")
+}
