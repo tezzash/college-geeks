@@ -1,0 +1,23 @@
+# Node / TypeScript
+node_modules/
+dist/
+coverage/
+*.log
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# Flutter / Dart
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.pub-cache/
+build/
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
