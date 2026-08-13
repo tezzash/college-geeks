@@ -265,7 +265,7 @@ export class SimulationService {
       averagePlayerCash: totalCash / players.length,
       poorestPlayer: { ...sorted[0] },
       richestPlayer: { ...sorted[sorted.length - 1] },
-      players: players.map((player) => ({ ...player })),
+      players,
     };
   }
 
