@@ -8,6 +8,9 @@ export class DatabaseBattleService {
     private readonly combat: CombatService,
     private readonly pvpEnergyCost: number,
     private readonly stealRate: number,
+    private readonly maxEnergy = 10,
+    private readonly energyRegenSeconds = 420,
+    private readonly now: () => Date = () => new Date(),
   ) {}
 
   async fight(attackerId: string, defenderId: string, action: CombatAction) {
@@ -16,19 +19,29 @@ export class DatabaseBattleService {
     if (!Number.isFinite(this.stealRate) || this.stealRate < 0 || this.stealRate > 1) throw new Error('Invalid steal rate.');
 
     return this.prisma.$transaction(async (tx) => {
-      const reserved = await tx.player.updateMany({
-        where: { id: attackerId, energy: { gte: this.pvpEnergyCost } },
-        data: { energy: { decrement: this.pvpEnergyCost } },
-      });
-      if (reserved.count !== 1) throw new Error('Insufficient energy.');
-
-      const [attacker, defender] = await Promise.all([
+      const [attackerBefore, defender] = await Promise.all([
         tx.player.findUnique({ where: { id: attackerId } }),
         tx.player.findUnique({ where: { id: defenderId } }),
       ]);
-      if (!attacker || !defender) throw new Error('Player not found.');
+      if (!attackerBefore || !defender) throw new Error('Player not found.');
 
-      const combat = this.combat.resolve(action, attacker, defender);
+      const now = this.now();
+      const elapsedSeconds = Math.max(0, Math.floor((now.getTime() - attackerBefore.lastEnergyUpdate.getTime()) / 1000));
+      const regenerated = this.energyRegenSeconds > 0 ? Math.floor(elapsedSeconds / this.energyRegenSeconds) : 0;
+      const availableEnergy = Math.min(this.maxEnergy, attackerBefore.energy + regenerated);
+      if (availableEnergy < this.pvpEnergyCost) throw new Error('Insufficient energy.');
+      const consumedSeconds = regenerated * this.energyRegenSeconds;
+      const lastEnergyUpdate = availableEnergy >= this.maxEnergy
+        ? now
+        : new Date(attackerBefore.lastEnergyUpdate.getTime() + consumedSeconds * 1000);
+
+      const reserved = await tx.player.updateMany({
+        where: { id: attackerId, energy: attackerBefore.energy, lastEnergyUpdate: attackerBefore.lastEnergyUpdate },
+        data: { energy: availableEnergy - this.pvpEnergyCost, lastEnergyUpdate },
+      });
+      if (reserved.count !== 1) throw new Error('Player state changed during battle. Please retry.');
+
+      const combat = this.combat.resolve(action, attackerBefore, defender);
       const cashTransferred = combat.success
         ? Math.round(Number(defender.cash) * this.stealRate * 100) / 100
         : 0;
@@ -91,6 +104,6 @@ export class DatabaseBattleService {
         defenderCash: Number(defenderAfter.cash),
         attackerEnergy: attackerAfter.energy,
       };
-    });
+    }, { isolationLevel: 'Serializable' });
   }
 }
