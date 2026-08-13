@@ -1,0 +1,36 @@
+name: One-shot mobile syntax repair
+
+on:
+  push:
+    branches:
+      - feat/playable-alpha-polish
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - name: Repair missing Dart parenthesis
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('mobile/lib/screens.dart')
+          text = path.read_text()
+          old = "Text(value, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900))])])));"
+          new = "Text(value, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900))])])))"
+          if old not in text:
+              raise SystemExit('Expected malformed StatCard expression was not found')
+          path.write_text(text.replace(old, new, 1))
+          PY
+          rm .github/workflows/repair-mobile-syntax.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add mobile/lib/screens.dart .github/workflows/repair-mobile-syntax.yml
+          git commit -m "fix: repair malformed Flutter StatCard expression"
+          git push
