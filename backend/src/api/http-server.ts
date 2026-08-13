@@ -51,6 +51,23 @@ export class HttpApiServer {
       if (request.method === 'GET' && url.pathname === '/jobs') return this.send(response, 200, { jobs: await this.app.databaseJobsService.listJobs() });
       if (request.method === 'GET' && url.pathname === '/jobs/active') return this.send(response, 200, { activeJob: await this.app.databaseJobsService.getActive(playerId) });
 
+      if (request.method === 'GET' && url.pathname === '/tower') {
+        return this.send(response, 200, { rooms: await this.app.databaseTowerService.list(playerId) });
+      }
+      if (request.method === 'POST' && url.pathname === '/tower/unlock') {
+        const roomNumber = this.numberField(body, 'roomNumber');
+        const unlockCost = this.numberField(body, 'unlockCost');
+        return this.send(response, 201, { room: await this.app.databaseTowerService.unlock(playerId, { roomNumber, unlockCost }) });
+      }
+      if (request.method === 'GET' && url.pathname === '/allies') {
+        return this.send(response, 200, { allies: await this.app.databaseAlliesService.listAllies() });
+      }
+      if (request.method === 'POST' && url.pathname === '/allies/hire') {
+        const allyId = this.stringField(body, 'allyId');
+        const towerRoomId = this.stringField(body, 'towerRoomId');
+        return this.send(response, 201, await this.app.databaseAlliesService.hire(playerId, allyId, towerRoomId));
+      }
+
       const jobStart = url.pathname.match(/^\/jobs\/([^/]+)\/start$/);
       if (request.method === 'POST' && jobStart) {
         return this.send(response, 201, { activeJob: await this.app.databaseJobsService.start(playerId, jobStart[1]) });
@@ -99,6 +116,12 @@ export class HttpApiServer {
     const value = body[name];
     if (typeof value !== 'string' || !value.trim()) throw new Error(`${name} is required.`);
     return value.trim();
+  }
+
+  private numberField(body: Record<string, unknown>, name: string): number {
+    const value = body[name];
+    if (typeof value !== 'number' || !Number.isFinite(value)) throw new Error(`${name} must be a number.`);
+    return value;
   }
 
   private statusFor(message: string): number {
