@@ -30,20 +30,24 @@ export class DatabaseJobsService {
   }
 
   async start(playerId: string, jobId: string) {
-    const job = await this.prisma.job.findUnique({ where: { id: jobId } });
-    if (!job) throw new Error('Job not found.');
-    const active = await this.prisma.activeJob.findFirst({ where: { playerId, collected: false } });
-    if (active) throw new Error('Player already has an active job.');
-    const startedAt = this.now();
-    return this.prisma.activeJob.create({
-      data: {
-        playerId,
-        jobId,
-        startedAt,
-        finishesAt: new Date(startedAt.getTime() + job.durationSeconds * 1000),
-      },
-      include: { job: true },
-    });
+    return this.prisma.$transaction(async (tx) => {
+      const job = await tx.job.findUnique({ where: { id: jobId } });
+      if (!job) throw new Error('Job not found.');
+      const active = await tx.activeJob.findFirst({ where: { playerId, collected: false } });
+      if (active) throw new Error('Player already has an active job.');
+      const player = await tx.player.findUnique({ where: { id: playerId }, select: { id: true } });
+      if (!player) throw new Error('Player not found.');
+      const startedAt = this.now();
+      return tx.activeJob.create({
+        data: {
+          playerId,
+          jobId,
+          startedAt,
+          finishesAt: new Date(startedAt.getTime() + job.durationSeconds * 1000),
+        },
+        include: { job: true },
+      });
+    }, { isolationLevel: 'Serializable' });
   }
 
   getActive(playerId: string) {
@@ -57,26 +61,28 @@ export class DatabaseJobsService {
     return this.prisma.$transaction(async (tx) => {
       const active = await tx.activeJob.findFirst({
         where: { id: activeJobId, playerId, collected: false },
-        include: { job: true, player: true },
+        include: { job: true },
       });
       if (!active) throw new Error('Active job not found.');
       if (this.now().getTime() < active.finishesAt.getTime()) throw new Error('Job is not finished yet.');
 
       const reward = Number(active.job.rewardCash);
-      const nextCash = Number(active.player.cash) + reward;
-      const updatedPlayer = await tx.player.update({ where: { id: playerId }, data: { cash: nextCash } });
+      const updatedPlayer = await tx.player.update({
+        where: { id: playerId },
+        data: { cash: { increment: reward } },
+      });
       const completed = await tx.activeJob.update({ where: { id: active.id }, data: { collected: true } });
       await tx.cashTransaction.create({
         data: {
           playerId,
           type: CashTransactionType.JOB_REWARD,
           amount: reward,
-          balanceAfter: nextCash,
+          balanceAfter: updatedPlayer.cash,
           reference: active.id,
         },
       });
 
       return { activeJob: completed, rewardCash: reward, player: updatedPlayer };
-    });
+    }, { isolationLevel: 'Serializable' });
   }
 }
