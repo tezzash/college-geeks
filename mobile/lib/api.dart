@@ -13,11 +13,7 @@ class ApiClient {
   final String baseUrl;
   final http.Client _client;
   String? token;
-
-  Map<String, String> get _headers => {
-    'Content-Type': 'application/json',
-    if (token != null) 'Authorization': 'Bearer $token',
-  };
+  Map<String, String> get _headers => {'Content-Type': 'application/json', if (token != null) 'Authorization': 'Bearer $token'};
 
   Future<Map<String, dynamic>> _request(String method, String path, {Map<String, dynamic>? body}) async {
     final uri = Uri.parse('$baseUrl$path');
@@ -29,8 +25,7 @@ class ApiClient {
       default: throw StateError('Unsupported HTTP method');
     }
     dynamic decoded;
-    try { decoded = response.body.isEmpty ? <String, dynamic>{} : jsonDecode(response.body); }
-    catch (_) { decoded = <String, dynamic>{'message': response.body}; }
+    try { decoded = response.body.isEmpty ? <String, dynamic>{} : jsonDecode(response.body); } catch (_) { decoded = <String, dynamic>{'message': response.body}; }
     if (response.statusCode < 200 || response.statusCode >= 300) {
       final message = decoded is Map && decoded['message'] != null ? decoded['message'].toString() : decoded is Map && decoded['error'] != null ? decoded['error'].toString() : 'Request failed (${response.statusCode})';
       throw ApiException(message, response.statusCode);
@@ -41,6 +36,7 @@ class ApiClient {
   Future<Map<String, dynamic>> register(String username, String email, String password) => _request('POST', '/auth/register', body: {'username': username, 'email': email, 'password': password});
   Future<Map<String, dynamic>> login(String login, String password) => _request('POST', '/auth/login', body: {'login': login, 'password': password});
   Future<Map<String, dynamic>> me() => _request('GET', '/me');
+  Future<Map<String, dynamic>> players([String query = '']) => _request('GET', '/players?q=${Uri.encodeQueryComponent(query)}');
   Future<Map<String, dynamic>> jobs() => _request('GET', '/jobs');
   Future<Map<String, dynamic>> activeJob() => _request('GET', '/jobs/active');
   Future<Map<String, dynamic>> startJob(String jobId) => _request('POST', '/jobs/$jobId/start');
