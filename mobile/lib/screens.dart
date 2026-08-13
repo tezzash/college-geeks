@@ -45,7 +45,7 @@ class _AuthScreenState extends State<AuthScreen> {
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           Container(
             padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(borderRadius: BorderRadius.circular(28), color: Theme.of(context).colorScheme.primaryContainer.withOpacity(.35)),
+            decoration: BoxDecoration(borderRadius: BorderRadius.circular(28), color: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: .35)),
             child: const Icon(Icons.school_rounded, size: 64),
           ),
           const SizedBox(height: 18),
@@ -247,29 +247,11 @@ class _TowerPageState extends State<TowerPage> with SingleTickerProviderStateMix
       ListView(padding: const EdgeInsets.all(20), children: [for (final ally in allies.whereType<Map>()) Card(margin: const EdgeInsets.only(bottom: 8), child: ListTile(
         leading: CircleAvatar(child: Text('${ally['tier'] ?? '?'}'.substring(0, 1))),
         title: Text('${ally['name']}', style: const TextStyle(fontWeight: FontWeight.w700)),
-        subtitle: Text('${ally['tier']}  •  +${ally['power']} Power  •  +${ally['smartness']} Smartness\n${ally['hireCost']} cash'),
-        isThreeLine: true,
+        subtitle: Text('${ally['tier']}  •  +${ally['power']} Power / +${ally['smartness']} Smartness  •  ${ally['cost']} cash'),
         trailing: FilledButton(onPressed: () => hire(ally), child: const Text('HIRE')),
       ))]),
     ])),
   ]);
-}
-
-class RoomCard extends StatelessWidget {
-  const RoomCard({super.key, required this.number, required this.room, required this.onUnlock});
-  final int number; final Map? room; final VoidCallback onUnlock;
-  @override
-  Widget build(BuildContext context) {
-    final unlocked = room?['unlocked'] == true;
-    final cost = room?['unlockCost'] ?? '—';
-    final occupants = (room?['occupants'] as List?)?.length ?? 0;
-    return Card(margin: const EdgeInsets.only(bottom: 10), child: ListTile(
-      leading: CircleAvatar(child: Text('$number')),
-      title: Text('Room $number', style: const TextStyle(fontWeight: FontWeight.w700)),
-      subtitle: Text(unlocked ? occupants == 0 ? 'Unlocked • Empty' : 'Unlocked • $occupants occupant(s)' : 'Unlock for $cost cash'),
-      trailing: unlocked ? const Icon(Icons.check_circle) : FilledButton(onPressed: onUnlock, child: const Text('UNLOCK')),
-    ));
-  }
 }
 
 class BattlePage extends StatefulWidget {
@@ -279,52 +261,39 @@ class BattlePage extends StatefulWidget {
 }
 
 class _BattlePageState extends State<BattlePage> {
-  final search = TextEditingController();
-  List<dynamic> players = []; String action = 'punch'; bool loading = false; Map<String, dynamic>? result;
-  @override void dispose() { search.dispose(); super.dispose(); }
-  Future<void> findPlayers() async { setState(() => loading = true); try { final r = await widget.api.players(search.text.trim()); players = r['players'] is List ? r['players'] as List : []; } catch (e) { _msg(e.toString()); } if (mounted) setState(() => loading = false); }
-  Future<void> fight(String defenderId) async { setState(() => loading = true); try { final r = await widget.api.battle(defenderId, action); result = r; await widget.changed(); } catch (e) { _msg(e.toString()); } if (mounted) setState(() => loading = false); }
+  final query = TextEditingController();
+  List<dynamic> players = []; String mode = 'PUNCH'; Map<String, dynamic>? result; bool busy = false;
+  @override void dispose() { query.dispose(); super.dispose(); }
+  Future<void> search() async { try { final r = await widget.api.players(query.text.trim()); players = r['players'] is List ? r['players'] as List : []; if (mounted) setState(() {}); } catch (e) { _msg(e.toString()); } }
+  Future<void> fight(String defenderId) async { setState(() => busy = true); try { result = await widget.api.battle(defenderId, mode); await widget.changed(); } catch (e) { _msg(e.toString()); } if (mounted) setState(() => busy = false); }
   void _msg(String message) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
 
   @override
   Widget build(BuildContext context) => ListView(padding: const EdgeInsets.all(20), children: [
     Text('PvP Arena', style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w900)),
-    const SizedBox(height: 6), const Text('Pick your move, spend 1 energy, and take the risk.'),
-    const SizedBox(height: 18),
-    TextField(controller: search, onSubmitted: (_) => findPlayers(), decoration: InputDecoration(labelText: 'Search opponent', prefixIcon: const Icon(Icons.search), suffixIcon: IconButton(onPressed: findPlayers, icon: const Icon(Icons.arrow_forward)), border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)))),
-    const SizedBox(height: 12),
-    SegmentedButton<String>(segments: const [ButtonSegment(value: 'punch', icon: Icon(Icons.fitness_center), label: Text('PUNCH')), ButtonSegment(value: 'face_off', icon: Icon(Icons.psychology), label: Text('FACE-OFF'))], selected: {action}, onSelectionChanged: loading ? null : (value) => setState(() => action = value.first)),
+    const SizedBox(height: 6), const Text('Pick your edge. Spend energy. Take the cash.'),
     const SizedBox(height: 16),
-    if (loading) const LinearProgressIndicator(),
-    for (final player in players.whereType<Map>()) Card(child: ListTile(
-      leading: const CircleAvatar(child: Icon(Icons.person)),
-      title: Text('${player['username']}', style: const TextStyle(fontWeight: FontWeight.w700)),
-      subtitle: Text('Power ${player['power']}  •  Smartness ${player['smartness']}'),
-      trailing: FilledButton(onPressed: loading ? null : () => fight('${player['id']}'), child: const Text('FIGHT')),
+    SegmentedButton<String>(segments: const [ButtonSegment(value: 'PUNCH', label: Text('PUNCH'), icon: Icon(Icons.fitness_center)), ButtonSegment(value: 'FACE_OFF', label: Text('FACE-OFF'), icon: Icon(Icons.psychology))], selected: {mode}, onSelectionChanged: busy ? null : (value) => setState(() => mode = value.first)),
+    const SizedBox(height: 16),
+    TextField(controller: query, onSubmitted: (_) => search(), decoration: InputDecoration(labelText: 'Find a rival', prefixIcon: const Icon(Icons.search), suffixIcon: IconButton(onPressed: search, icon: const Icon(Icons.arrow_forward)), border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)))),
+    const SizedBox(height: 12),
+    for (final p in players.whereType<Map>()) Card(child: ListTile(
+      leading: CircleAvatar(child: Text('${p['username'] ?? '?'}'.substring(0, 1).toUpperCase())),
+      title: Text('${p['username']}'),
+      subtitle: Text('Power ${p['power']}  •  Smartness ${p['smartness']}'),
+      trailing: FilledButton(onPressed: busy ? null : () => fight('${p['id']}'), child: const Text('FIGHT')),
     )),
+    if (busy) const Padding(padding: EdgeInsets.all(20), child: Center(child: CircularProgressIndicator())),
     if (result != null) ...[
-      const SizedBox(height: 12),
-      BattleResultCard(result: result!),
+      const SizedBox(height: 16),
+      Card(child: Padding(padding: const EdgeInsets.all(18), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text('${result!['winnerId'] == result!['attackerId'] ? 'VICTORY' : 'DEFEAT'}', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900)),
+        const SizedBox(height: 8),
+        Text('Win probability: ${result!['winProbability'] ?? '—'}'),
+        if (result!['stolenCash'] != null) Text('Cash stolen: ${result!['stolenCash']}'),
+      ]))),
     ],
   ]);
-}
-
-class BattleResultCard extends StatelessWidget {
-  const BattleResultCard({super.key, required this.result});
-  final Map<String, dynamic> result;
-  @override
-  Widget build(BuildContext context) {
-    final outcome = '${result['result'] ?? result['outcome'] ?? ''}'.toLowerCase();
-    final win = outcome.contains('win');
-    return Card(child: Padding(padding: const EdgeInsets.all(18), child: Column(children: [
-      Icon(win ? Icons.emoji_events : Icons.shield, size: 54),
-      const SizedBox(height: 8),
-      Text(win ? 'VICTORY' : 'BATTLE COMPLETE', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900)),
-      const SizedBox(height: 8),
-      Text(result['message']?.toString() ?? 'Battle resolved.'),
-      if (result['stolenCash'] != null) ...[const SizedBox(height: 6), Text('Cash won: +${result['stolenCash']}')],
-    ])));
-  }
 }
 
 class CountdownText extends StatefulWidget {
@@ -337,25 +306,29 @@ class _CountdownTextState extends State<CountdownText> {
   Timer? timer;
   @override void initState() { super.initState(); timer = Timer.periodic(const Duration(seconds: 1), (_) { if (mounted) setState(() {}); }); }
   @override void dispose() { timer?.cancel(); super.dispose(); }
-  @override Widget build(BuildContext context) { final left = widget.target.difference(DateTime.now()); final done = left.isNegative || left.inSeconds <= 0; return Text(done ? 'READY' : '${formatDuration(left)}${widget.suffix}'); }
-}
-
-String formatDuration(Duration duration) { final seconds = duration.inSeconds.clamp(0, 86399); final h = seconds ~/ 3600; final m = (seconds % 3600) ~/ 60; final s = seconds % 60; if (h > 0) return '${h}h ${m.toString().padLeft(2, '0')}m'; return '${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}'; }
-
-class SectionTitle extends StatelessWidget {
-  const SectionTitle(this.text, {super.key});
-  final String text;
-  @override Widget build(BuildContext context) => Text(text, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900));
+  @override Widget build(BuildContext context) { final remaining = widget.target.difference(DateTime.now()); final seconds = remaining.isNegative ? 0 : remaining.inSeconds; final text = '${seconds ~/ 60}:${(seconds % 60).toString().padLeft(2, '0')}'; return Text('$text${widget.suffix}'); }
 }
 
 class StatCard extends StatelessWidget {
   const StatCard(this.icon, this.label, this.value, {super.key});
-  final IconData icon; final String label; final dynamic value;
-  @override Widget build(BuildContext context) => Card(child: Padding(padding: const EdgeInsets.all(16), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Icon(icon, size: 22), const SizedBox(height: 10), Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 1.1)), const SizedBox(height: 3), Text('$value', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900))])));
+  final IconData icon; final String label; final String value;
+  @override Widget build(BuildContext context) => Card(child: Padding(padding: const EdgeInsets.all(16), child: Row(children: [Icon(icon), const SizedBox(width: 10), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800)), Text(value, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900))])])));
 }
 
-class LoopCard extends StatelessWidget {
-  const LoopCard(this.icon, this.title, this.subtitle, {super.key});
-  final IconData icon; final String title; final String subtitle;
-  @override Widget build(BuildContext context) => Card(child: ListTile(leading: CircleAvatar(child: Icon(icon)), title: Text(title, style: const TextStyle(fontWeight: FontWeight.w800)), subtitle: Text(subtitle), trailing: const Icon(Icons.chevron_right)));
+class SectionTitle extends StatelessWidget { const SectionTitle(this.text, {super.key}); final String text; @override Widget build(BuildContext context) => Text(text, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900)); }
+class LoopCard extends StatelessWidget { const LoopCard(this.icon, this.title, this.subtitle, {super.key}); final IconData icon; final String title; final String subtitle; @override Widget build(BuildContext context) => Card(child: ListTile(leading: Icon(icon), title: Text(title, style: const TextStyle(fontWeight: FontWeight.w800)), subtitle: Text(subtitle))); }
+class RoomCard extends StatelessWidget {
+  const RoomCard({super.key, required this.number, required this.room, required this.onUnlock});
+  final int number; final Map? room; final VoidCallback onUnlock;
+  @override Widget build(BuildContext context) {
+    final unlocked = room?['unlocked'] == true;
+    final cost = room?['cost'] ?? '—';
+    final occupants = (room?['occupants'] as List?) ?? const [];
+    return Card(margin: const EdgeInsets.only(bottom: 10), child: ListTile(
+      leading: CircleAvatar(child: Text('$number')),
+      title: Text('${room?['name'] ?? 'Tower Room $number'}', style: const TextStyle(fontWeight: FontWeight.w800)),
+      subtitle: Text(unlocked ? (occupants.isEmpty ? 'Unlocked • Empty' : 'Unlocked • Occupied') : 'Locked • $cost cash'),
+      trailing: unlocked ? const Icon(Icons.check_circle) : FilledButton(onPressed: room == null ? null : onUnlock, child: const Text('UNLOCK')),
+    ));
+  }
 }
