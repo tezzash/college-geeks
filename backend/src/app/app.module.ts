@@ -3,10 +3,12 @@ import { AppConfig, ConfigService } from '../config';
 import { CombatService } from '../combat';
 import { GameConfigService } from '../game-config';
 import { HealthService } from '../health';
+import { PlayerService } from '../player';
 
 export class AppModule {
   readonly config: AppConfig;
   readonly healthService: HealthService;
+  readonly playerService: PlayerService;
   readonly prisma: PrismaService;
   readonly databasePlayerService: DatabasePlayerService;
   readonly databaseJobsService: DatabaseJobsService;
@@ -17,6 +19,7 @@ export class AppModule {
   constructor(readonly configService = new ConfigService()) {
     this.config = this.configService.load();
     this.healthService = new HealthService(this.config);
+    this.playerService = new PlayerService();
     this.prisma = new PrismaService();
     this.databasePlayerService = new DatabasePlayerService(this.prisma);
     this.databaseJobsService = new DatabaseJobsService(this.prisma);
