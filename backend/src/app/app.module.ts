@@ -27,7 +27,14 @@ export class AppModule {
 
     const gameConfig = new GameConfigService().getConfig();
     const combat = new CombatService(gameConfig);
-    this.databaseBattleService = new DatabaseBattleService(this.prisma, combat, gameConfig.pvpEnergyCost, gameConfig.stealRate);
+    this.databaseBattleService = new DatabaseBattleService(
+      this.prisma,
+      combat,
+      gameConfig.pvpEnergyCost,
+      gameConfig.stealRate,
+      gameConfig.maxEnergy,
+      gameConfig.energyRegenSeconds,
+    );
     this.authService = new AuthService(this.databasePlayerService, this.config.jwtSecret ?? 'development-only-secret-change-me-please-32chars');
   }
 }
