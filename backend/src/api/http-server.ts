@@ -40,79 +40,28 @@ export class HttpApiServer {
       const url = new URL(request.url ?? '/', `http://${request.headers.host ?? 'localhost'}`);
       const body = ['POST', 'PUT', 'PATCH'].includes(request.method ?? '') ? await this.readJson(request) : {};
 
-      if (request.method === 'GET' && url.pathname === '/health') {
-        return this.send(response, 200, this.app.healthService.check());
-      }
-      if (request.method === 'POST' && url.pathname === '/auth/register') {
-        return this.send(response, 201, await this.app.authService.register({
-          username: this.stringField(body, 'username'),
-          email: this.stringField(body, 'email'),
-          password: this.stringField(body, 'password'),
-        }));
-      }
-      if (request.method === 'POST' && url.pathname === '/auth/login') {
-        return this.send(response, 200, await this.app.authService.login({
-          login: this.stringField(body, 'login'),
-          password: this.stringField(body, 'password'),
-        }));
-      }
+      if (request.method === 'GET' && url.pathname === '/health') return this.send(response, 200, this.app.healthService.check());
+      if (request.method === 'POST' && url.pathname === '/auth/register') return this.send(response, 201, await this.app.authService.register({ username: this.stringField(body, 'username'), email: this.stringField(body, 'email'), password: this.stringField(body, 'password') }));
+      if (request.method === 'POST' && url.pathname === '/auth/login') return this.send(response, 200, await this.app.authService.login({ login: this.stringField(body, 'login'), password: this.stringField(body, 'password') }));
 
       const playerId = this.requirePlayer(request);
-      if (request.method === 'GET' && url.pathname === '/me') {
-        return this.send(response, 200, { player: await this.app.databasePlayerService.get(playerId) });
-      }
-      if (request.method === 'GET' && url.pathname === '/players') {
-        return this.send(response, 200, {
-          players: await this.app.databasePlayerService.search(url.searchParams.get('q') ?? '', playerId),
-        });
-      }
-      if (request.method === 'GET' && url.pathname === '/jobs') {
-        return this.send(response, 200, { jobs: await this.app.databaseJobsService.listJobs() });
-      }
-      if (request.method === 'GET' && url.pathname === '/jobs/active') {
-        return this.send(response, 200, { activeJob: await this.app.databaseJobsService.getActive(playerId) });
-      }
-      if (request.method === 'GET' && url.pathname === '/tower') {
-        return this.send(response, 200, { rooms: await this.app.databaseTowerService.list(playerId) });
-      }
-      if (request.method === 'POST' && url.pathname === '/tower/unlock') {
-        return this.send(response, 201, {
-          room: await this.app.databaseTowerService.unlock(playerId, {
-            roomNumber: this.numberField(body, 'roomNumber'),
-          }),
-        });
-      }
-      if (request.method === 'GET' && url.pathname === '/allies') {
-        return this.send(response, 200, { allies: await this.app.databaseAlliesService.listAllies() });
-      }
-      if (request.method === 'POST' && url.pathname === '/allies/hire') {
-        return this.send(response, 201, await this.app.databaseAlliesService.hire(
-          playerId,
-          this.stringField(body, 'allyId'),
-          this.stringField(body, 'towerRoomId'),
-        ));
-      }
+      if (request.method === 'GET' && url.pathname === '/me') return this.send(response, 200, { player: await this.app.databasePlayerService.get(playerId) });
+      if (request.method === 'GET' && url.pathname === '/players') return this.send(response, 200, { players: await this.app.databasePlayerService.search(url.searchParams.get('q') ?? '', playerId) });
+      if (request.method === 'GET' && url.pathname === '/jobs') return this.send(response, 200, { jobs: await this.app.databaseJobsService.listJobs() });
+      if (request.method === 'GET' && url.pathname === '/jobs/active') return this.send(response, 200, { activeJob: await this.app.databaseJobsService.getActive(playerId) });
+      if (request.method === 'GET' && url.pathname === '/tower') return this.send(response, 200, { rooms: await this.app.databaseTowerService.list(playerId) });
+      if (request.method === 'POST' && url.pathname === '/tower/unlock') return this.send(response, 201, { room: await this.app.databaseTowerService.unlock(playerId, { roomNumber: this.numberField(body, 'roomNumber') }) });
+      if (request.method === 'GET' && url.pathname === '/allies') return this.send(response, 200, { allies: await this.app.databaseAlliesService.listAllies() });
+      if (request.method === 'POST' && url.pathname === '/allies/hire') return this.send(response, 201, await this.app.databaseAlliesService.hire(playerId, this.stringField(body, 'allyId'), this.stringField(body, 'towerRoomId')));
 
       const jobStart = url.pathname.match(/^\/jobs\/([^/]+)\/start$/);
-      if (request.method === 'POST' && jobStart) {
-        return this.send(response, 201, {
-          activeJob: await this.app.databaseJobsService.start(playerId, jobStart[1]),
-        });
-      }
+      if (request.method === 'POST' && jobStart) return this.send(response, 201, { activeJob: await this.app.databaseJobsService.start(playerId, jobStart[1]) });
       const jobCollect = url.pathname.match(/^\/jobs\/active\/([^/]+)\/collect$/);
-      if (request.method === 'POST' && jobCollect) {
-        return this.send(response, 200, await this.app.databaseJobsService.collect(playerId, jobCollect[1]));
-      }
+      if (request.method === 'POST' && jobCollect) return this.send(response, 200, await this.app.databaseJobsService.collect(playerId, jobCollect[1]));
       if (request.method === 'POST' && url.pathname === '/battles') {
         const action = this.stringField(body, 'action');
-        if (action !== 'punch' && action !== 'face_off') {
-          throw new Error('action must be punch or face_off.');
-        }
-        return this.send(response, 200, await this.app.databaseBattleService.fight(
-          playerId,
-          this.stringField(body, 'defenderId'),
-          action === 'face_off' ? 'face-off' : 'punch',
-        ));
+        if (action !== 'punch' && action !== 'face_off') throw new Error('action must be punch or face_off.');
+        return this.send(response, 200, await this.app.databaseBattleService.fight(playerId, this.stringField(body, 'defenderId'), action === 'face_off' ? 'face-off' : 'punch'));
       }
       return this.send(response, 404, { error: 'Route not found.' });
     } catch (error) {
@@ -138,14 +87,8 @@ export class HttpApiServer {
     }
     if (chunks.length === 0) return {};
     let parsed: unknown;
-    try {
-      parsed = JSON.parse(Buffer.concat(chunks).toString('utf8'));
-    } catch {
-      throw new Error('Request body must contain valid JSON.');
-    }
-    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-      throw new Error('JSON body must be an object.');
-    }
+    try { parsed = JSON.parse(Buffer.concat(chunks).toString('utf8')); } catch { throw new Error('Request body must contain valid JSON.'); }
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('JSON body must be an object.');
     return parsed as Record<string, unknown>;
   }
 
@@ -182,7 +125,10 @@ export class HttpApiServer {
   private send(response: ServerResponse, status: number, payload: unknown): void {
     response.statusCode = status;
     response.setHeader('Content-Type', 'application/json; charset=utf-8');
-    if (status === 204) return response.end();
+    if (status === 204) {
+      response.end();
+      return;
+    }
     response.end(JSON.stringify(payload));
   }
 }
