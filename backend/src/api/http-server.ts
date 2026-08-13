@@ -79,7 +79,6 @@ export class HttpApiServer {
         return this.send(response, 201, {
           room: await this.app.databaseTowerService.unlock(playerId, {
             roomNumber: this.numberField(body, 'roomNumber'),
-            unlockCost: this.numberField(body, 'unlockCost'),
           }),
         });
       }
@@ -138,7 +137,12 @@ export class HttpApiServer {
       chunks.push(buffer);
     }
     if (chunks.length === 0) return {};
-    const parsed: unknown = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+    } catch {
+      throw new Error('Request body must contain valid JSON.');
+    }
     if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
       throw new Error('JSON body must be an object.');
     }
