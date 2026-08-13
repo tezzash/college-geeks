@@ -33,6 +33,8 @@ export class AppModule {
       combat,
       gameConfig.pvpEnergyCost,
       gameConfig.stealRate,
+      gameConfig.maxEnergy,
+      gameConfig.energyRegenSeconds,
     );
   }
 }
