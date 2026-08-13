@@ -35,40 +35,30 @@ export class DatabasePlayerService {
     const player = await this.prisma.$transaction(async (tx) => {
       const created = await tx.player.create({
         data: {
-          ...(input.id ? { id: input.id } : {}),
-          username: input.username.trim(),
-          email: input.email.trim().toLowerCase(),
-          passwordHash: input.passwordHash,
-          cash,
-          energy: input.energy ?? 10,
-          power: input.power ?? 0,
-          smartness: input.smartness ?? 0,
+          ...(input.id ? { id: input.id } : {}), username: input.username.trim(), email: input.email.trim().toLowerCase(), passwordHash: input.passwordHash,
+          cash, energy: input.energy ?? 10, power: input.power ?? 0, smartness: input.smartness ?? 0,
         },
       });
-
-      await tx.cashTransaction.create({
-        data: {
-          playerId: created.id,
-          type: CashTransactionType.STARTING_CASH,
-          amount: cash,
-          balanceAfter: cash,
-          reference: 'player-create',
-        },
-      });
-
+      await tx.cashTransaction.create({ data: { playerId: created.id, type: CashTransactionType.STARTING_CASH, amount: cash, balanceAfter: cash, reference: 'player-create' } });
       return created;
     });
-
     return this.toState(player);
   }
 
   async findCredentials(login: string): Promise<PlayerCredentials | null> {
     const normalized = login.trim().toLowerCase();
-    const player = await this.prisma.player.findFirst({
-      where: { OR: [{ username: login.trim() }, { email: normalized }] },
-    });
+    const player = await this.prisma.player.findFirst({ where: { OR: [{ username: login.trim() }, { email: normalized }] } });
     if (!player) return null;
     return { player: this.toState(player), passwordHash: player.passwordHash };
+  }
+
+  async search(query: string, excludeId: string): Promise<Array<Pick<PersistentPlayerState, 'id' | 'username' | 'power' | 'smartness'>>> {
+    const normalized = query.trim();
+    const players = await this.prisma.player.findMany({
+      where: { id: { not: excludeId }, ...(normalized ? { username: { contains: normalized, mode: 'insensitive' } } : {}) },
+      select: { id: true, username: true, power: true, smartness: true }, orderBy: { username: 'asc' }, take: 20,
+    });
+    return players;
   }
 
   async get(id: string): Promise<PersistentPlayerState> {
@@ -117,10 +107,7 @@ export class DatabasePlayerService {
     return this.toState(player);
   }
 
-  private validateAmount(amount: number): void {
-    if (!Number.isFinite(amount) || amount <= 0) throw new Error('amount must be positive.');
-  }
-
+  private validateAmount(amount: number): void { if (!Number.isFinite(amount) || amount <= 0) throw new Error('amount must be positive.'); }
   private toState(player: { id: string; username: string; email: string; cash: unknown; energy: number; power: number; smartness: number }): PersistentPlayerState {
     return { id: player.id, username: player.username, email: player.email, cash: Number(player.cash), energy: player.energy, power: player.power, smartness: player.smartness };
   }
