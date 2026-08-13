@@ -22,6 +22,11 @@ export interface PersistentPlayerState {
   smartness: number;
 }
 
+export interface PlayerCredentials {
+  player: PersistentPlayerState;
+  passwordHash: string;
+}
+
 export class DatabasePlayerService {
   constructor(private readonly prisma: PrismaService) {}
 
@@ -57,6 +62,15 @@ export class DatabasePlayerService {
     return this.toState(player);
   }
 
+  async findCredentials(login: string): Promise<PlayerCredentials | null> {
+    const normalized = login.trim().toLowerCase();
+    const player = await this.prisma.player.findFirst({
+      where: { OR: [{ username: login.trim() }, { email: normalized }] },
+    });
+    if (!player) return null;
+    return { player: this.toState(player), passwordHash: player.passwordHash };
+  }
+
   async get(id: string): Promise<PersistentPlayerState> {
     const player = await this.prisma.player.findUnique({ where: { id } });
     if (!player) throw new Error('Player not found.');
@@ -70,9 +84,7 @@ export class DatabasePlayerService {
       if (!current) throw new Error('Player not found.');
       const nextCash = Number(current.cash) + amount;
       const updated = await tx.player.update({ where: { id }, data: { cash: nextCash } });
-      await tx.cashTransaction.create({
-        data: { playerId: id, type, amount, balanceAfter: nextCash, reference },
-      });
+      await tx.cashTransaction.create({ data: { playerId: id, type, amount, balanceAfter: nextCash, reference } });
       return updated;
     });
     return this.toState(player);
@@ -86,9 +98,7 @@ export class DatabasePlayerService {
       const nextCash = Number(current.cash) - amount;
       if (nextCash < 0) throw new Error('Insufficient cash.');
       const updated = await tx.player.update({ where: { id }, data: { cash: nextCash } });
-      await tx.cashTransaction.create({
-        data: { playerId: id, type, amount: -amount, balanceAfter: nextCash, reference },
-      });
+      await tx.cashTransaction.create({ data: { playerId: id, type, amount: -amount, balanceAfter: nextCash, reference } });
       return updated;
     });
     return this.toState(player);
@@ -97,10 +107,7 @@ export class DatabasePlayerService {
   async updateStats(id: string, powerDelta: number, smartnessDelta: number): Promise<PersistentPlayerState> {
     if (!Number.isInteger(powerDelta) || powerDelta < 0) throw new Error('powerDelta must be a non-negative integer.');
     if (!Number.isInteger(smartnessDelta) || smartnessDelta < 0) throw new Error('smartnessDelta must be a non-negative integer.');
-    const player = await this.prisma.player.update({
-      where: { id },
-      data: { power: { increment: powerDelta }, smartness: { increment: smartnessDelta } },
-    });
+    const player = await this.prisma.player.update({ where: { id }, data: { power: { increment: powerDelta }, smartness: { increment: smartnessDelta } } });
     return this.toState(player);
   }
 
@@ -115,14 +122,6 @@ export class DatabasePlayerService {
   }
 
   private toState(player: { id: string; username: string; email: string; cash: unknown; energy: number; power: number; smartness: number }): PersistentPlayerState {
-    return {
-      id: player.id,
-      username: player.username,
-      email: player.email,
-      cash: Number(player.cash),
-      energy: player.energy,
-      power: player.power,
-      smartness: player.smartness,
-    };
+    return { id: player.id, username: player.username, email: player.email, cash: Number(player.cash), energy: player.energy, power: player.power, smartness: player.smartness };
   }
 }
