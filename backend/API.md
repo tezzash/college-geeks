@@ -1,0 +1,46 @@
+# College Geeks REST API
+
+The backend exposes a JSON REST API for the Flutter client. Start it with `npm start` after configuring PostgreSQL and `DATABASE_URL`.
+
+## Configuration
+
+- `PORT` — HTTP port, default `3000`
+- `DATABASE_URL` — PostgreSQL connection string
+- `JWT_SECRET` — secret used to sign access tokens; production requires it and it must be at least 32 characters
+- `CORS_ORIGIN` — allowed browser origin
+
+## Authentication
+
+Register:
+
+`POST /auth/register`
+
+```json
+{"username":"alice","email":"alice@example.com","password":"password123"}
+```
+
+Login:
+
+`POST /auth/login`
+
+```json
+{"login":"alice","password":"password123"}
+```
+
+Both return `{ "player": ..., "accessToken": "..." }`.
+
+Send the token on protected endpoints:
+
+`Authorization: Bearer <accessToken>`
+
+## Gameplay endpoints
+
+- `GET /health` — public health check
+- `GET /me` — authenticated player state
+- `GET /jobs` — list jobs
+- `GET /jobs/active` — current player's active job
+- `POST /jobs/:jobId/start` — start a job
+- `POST /jobs/active/:activeJobId/collect` — collect a completed job
+- `POST /battles` — fight another player with `{ "defenderId": "...", "action": "punch" | "face_off" }`
+
+All gameplay state is backed by PostgreSQL through Prisma.
