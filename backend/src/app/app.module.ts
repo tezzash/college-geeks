@@ -4,6 +4,7 @@ import { CombatService } from '../combat';
 import { GameConfigService } from '../game-config';
 import { HealthService } from '../health';
 import { AuthService } from '../auth';
+import { RateLimiter } from '../api/rate-limiter';
 
 export class AppModule {
   readonly config: AppConfig;
@@ -15,6 +16,7 @@ export class AppModule {
   readonly databaseAlliesService: DatabaseAlliesService;
   readonly databaseBattleService: DatabaseBattleService;
   readonly authService: AuthService;
+  readonly rateLimiter: RateLimiter;
 
   constructor(readonly configService = new ConfigService()) {
     this.config = this.configService.load();
@@ -27,14 +29,12 @@ export class AppModule {
 
     const gameConfig = new GameConfigService().getConfig();
     const combat = new CombatService(gameConfig);
-    this.databaseBattleService = new DatabaseBattleService(
-      this.prisma,
-      combat,
-      gameConfig.pvpEnergyCost,
-      gameConfig.stealRate,
-      gameConfig.maxEnergy,
-      gameConfig.energyRegenSeconds,
-    );
+    this.databaseBattleService = new DatabaseBattleService(this.prisma, combat, gameConfig.pvpEnergyCost, gameConfig.stealRate, gameConfig.maxEnergy, gameConfig.energyRegenSeconds);
     this.authService = new AuthService(this.databasePlayerService, this.config.jwtSecret ?? 'development-only-secret-change-me-please-32chars');
+    this.rateLimiter = new RateLimiter({
+      register: { limit: 5, windowMs: 60 * 60 * 1000 },
+      login: { limit: 10, windowMs: 15 * 60 * 1000 },
+      battle: { limit: 30, windowMs: 60 * 1000 },
+    });
   }
 }

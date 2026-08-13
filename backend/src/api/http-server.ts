@@ -1,5 +1,6 @@
 import { createServer, IncomingMessage, Server, ServerResponse } from 'node:http';
 import { AppModule } from '../app';
+import { RateLimitError } from './rate-limiter';
 
 export class HttpApiServer {
   private readonly server: Server;
@@ -38,6 +39,15 @@ export class HttpApiServer {
 
     try {
       const url = new URL(request.url ?? '/', `http://${request.headers.host ?? 'localhost'}`);
+      const clientKey = this.clientKey(request);
+
+      if (request.method === 'POST' && url.pathname === '/auth/register') {
+        this.app.rateLimiter.check('register', clientKey);
+      }
+      if (request.method === 'POST' && url.pathname === '/auth/login') {
+        this.app.rateLimiter.check('login', clientKey);
+      }
+
       const body = ['POST', 'PUT', 'PATCH'].includes(request.method ?? '') ? await this.readJson(request) : {};
 
       if (request.method === 'GET' && url.pathname === '/health') return this.send(response, 200, this.app.healthService.check());
@@ -59,15 +69,24 @@ export class HttpApiServer {
       const jobCollect = url.pathname.match(/^\/jobs\/active\/([^/]+)\/collect$/);
       if (request.method === 'POST' && jobCollect) return this.send(response, 200, await this.app.databaseJobsService.collect(playerId, jobCollect[1]));
       if (request.method === 'POST' && url.pathname === '/battles') {
+        this.app.rateLimiter.check('battle', playerId);
         const action = this.stringField(body, 'action');
         if (action !== 'punch' && action !== 'face_off') throw new Error('action must be punch or face_off.');
         return this.send(response, 200, await this.app.databaseBattleService.fight(playerId, this.stringField(body, 'defenderId'), action === 'face_off' ? 'face-off' : 'punch'));
       }
       return this.send(response, 404, { error: 'Route not found.' });
     } catch (error) {
+      if (error instanceof RateLimitError) {
+        response.setHeader('Retry-After', String(error.retryAfterSeconds));
+        return this.send(response, 429, { error: error.message });
+      }
       const message = error instanceof Error ? error.message : 'Request failed.';
       return this.send(response, this.statusFor(message), { error: message });
     }
+  }
+
+  private clientKey(request: IncomingMessage): string {
+    return request.socket.remoteAddress ?? 'unknown';
   }
 
   private requirePlayer(request: IncomingMessage): string {
@@ -125,6 +144,8 @@ export class HttpApiServer {
   private send(response: ServerResponse, status: number, payload: unknown): void {
     response.statusCode = status;
     response.setHeader('Content-Type', 'application/json; charset=utf-8');
+    response.setHeader('X-Content-Type-Options', 'nosniff');
+    response.setHeader('X-Frame-Options', 'DENY');
     if (status === 204) {
       response.end();
       return;
