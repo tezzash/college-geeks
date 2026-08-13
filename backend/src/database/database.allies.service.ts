@@ -47,30 +47,35 @@ export class DatabaseAlliesService {
       if (!ally) throw new Error('Ally not found.');
       if (!room || room.playerId !== playerId || !room.unlocked) throw new Error('Unlocked tower room not found.');
 
-      const occupied = await tx.roomOccupant.findUnique({ where: { towerRoomId } });
+      const [occupied, alreadyHired] = await Promise.all([
+        tx.roomOccupant.findUnique({ where: { towerRoomId } }),
+        tx.roomOccupant.findFirst({ where: { towerRoom: { playerId }, allyId } }),
+      ]);
       if (occupied) throw new Error('Tower room is already occupied.');
-      const nextCash = Number(player.cash) - Number(ally.hireCost);
-      if (nextCash < 0) throw new Error('Insufficient cash.');
+      if (alreadyHired) throw new Error('Ally already hired.');
 
-      const occupant = await tx.roomOccupant.create({ data: { towerRoomId, allyId } });
-      const updatedPlayer = await tx.player.update({
-        where: { id: playerId },
+      const charged = await tx.player.updateMany({
+        where: { id: playerId, cash: { gte: ally.hireCost } },
         data: {
-          cash: nextCash,
+          cash: { decrement: ally.hireCost },
           power: { increment: ally.power },
           smartness: { increment: ally.smartness },
         },
       });
+      if (charged.count !== 1) throw new Error('Insufficient cash.');
+
+      const occupant = await tx.roomOccupant.create({ data: { towerRoomId, allyId } });
+      const updatedPlayer = await tx.player.findUniqueOrThrow({ where: { id: playerId } });
       await tx.cashTransaction.create({
         data: {
           playerId,
           type: CashTransactionType.ALLY_HIRE,
           amount: -Number(ally.hireCost),
-          balanceAfter: nextCash,
+          balanceAfter: updatedPlayer.cash,
           reference: occupant.id,
         },
       });
       return { occupant, player: updatedPlayer, ally };
-    });
+    }, { isolationLevel: 'Serializable' });
   }
 }
