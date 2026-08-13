@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import { test } from 'node:test';
 import { CombatService } from '../combat';
 import { ALPHA_GAME_CONFIG } from '../game-config';
 import { PlayerService } from '../player';
