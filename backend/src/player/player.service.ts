@@ -6,22 +6,9 @@ export class PlayerService {
   create(input: CreatePlayerInput): PlayerGameState {
     this.validateIdentity(input);
     if (this.players.has(input.id)) throw new Error('Player already exists.');
-    if ([...this.players.values()].some((player) => player.username === input.username)) {
-      throw new Error('Username is already taken.');
-    }
-    if ([...this.players.values()].some((player) => player.email === input.email)) {
-      throw new Error('Email is already registered.');
-    }
-
-    const player: PlayerGameState = {
-      id: input.id,
-      username: input.username,
-      email: input.email,
-      cash: input.cash ?? 1000,
-      energy: input.energy ?? 10,
-      power: input.power ?? 0,
-      smartness: input.smartness ?? 0,
-    };
+    if ([...this.players.values()].some((player) => player.username === input.username)) throw new Error('Username is already taken.');
+    if ([...this.players.values()].some((player) => player.email === input.email)) throw new Error('Email is already registered.');
+    const player: PlayerGameState = { id: input.id, username: input.username, email: input.email, cash: input.cash ?? 1000, energy: input.energy ?? 10, power: input.power ?? 0, smartness: input.smartness ?? 0 };
     this.validateState(player);
     this.players.set(player.id, player);
     return { ...player };
@@ -33,9 +20,7 @@ export class PlayerService {
     return { ...player };
   }
 
-  list(): PlayerGameState[] {
-    return [...this.players.values()].map((player) => ({ ...player }));
-  }
+  list(): PlayerGameState[] { return [...this.players.values()].map((player) => ({ ...player })); }
 
   updateStats(id: string, powerDelta: number, smartnessDelta: number): PlayerGameState {
     this.validateDelta(powerDelta, 'powerDelta');
@@ -61,6 +46,15 @@ export class PlayerService {
     const player = this.get(id);
     if (player.cash < amount) throw new Error('Insufficient cash.');
     player.cash = Math.round((player.cash - amount) * 100) / 100;
+    this.players.set(id, player);
+    return { ...player };
+  }
+
+  spendEnergy(id: string, amount: number): PlayerGameState {
+    if (!Number.isInteger(amount) || amount <= 0) throw new Error('energy amount must be a positive integer.');
+    const player = this.get(id);
+    if (player.energy < amount) throw new Error('Insufficient energy.');
+    player.energy -= amount;
     this.players.set(id, player);
     return { ...player };
   }

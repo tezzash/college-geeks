@@ -29,6 +29,8 @@ model Player {
   passwordHash     String            @map("password_hash")
   cash             Decimal           @default(1000) @db.Decimal(18, 2)
   energy           Int               @default(10)
+  power            Int               @default(0)
+  smartness        Int               @default(0)
   lastEnergyUpdate DateTime          @default(now()) @map("last_energy_update")
   createdAt        DateTime          @default(now()) @map("created_at")
   updatedAt        DateTime          @updatedAt @map("updated_at")
