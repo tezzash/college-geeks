@@ -73,6 +73,12 @@ describe('SimulationService', () => {
     assert.throws(() => service.simulateEconomy([], 1, 1, 1), /players/);
     assert.throws(() => service.simulateEconomy(players(), -1, 1, 1), /jobsPerDay/);
     assert.throws(() => service.simulateEconomy(players(), 1, 1, 0), /days/);
+
+    const negativeCashPlayer: EconomyPlayer = { id: 'bad', power: 10, smartness: 10, cash: -50 };
+    assert.throws(
+      () => service.simulateEconomy([negativeCashPlayer], 1, 1, 1),
+      /non-negative finite cash/
+    );
   });
 
   it('creates configurable job income without PvP transfers', () => {
