@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import { test } from 'node:test';
 import { AppModule } from './app.module';
 
 test('wires the database-backed gameplay services', () => {
